@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { AutomatonType } from '../engine/types';
+import { MachineType, Automaton } from '../engine/types';
 import { exportToJSON, exportToSVG, importFromJSON } from '../fileio';
 
 interface MenuBarProps {
-  currentType: AutomatonType;
-  onSelectType: (type: AutomatonType) => void;
+  currentType: MachineType;
+  onSelectType: (type: MachineType) => void;
   onNew: () => void;
-  onLoadState: (loadedData: any) => void;
-  getCurrentState: () => any; // Returns full automaton state for export
+  onLoadState: (loadedData: Automaton) => void;
+  getCurrentState: () => Automaton;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   onRunSimulation?: () => void;
@@ -35,14 +35,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
   const closeMenus = () => setActiveMenu(null);
 
-  // File action handlers
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       const data = await importFromJSON(file);
       onLoadState(data);
-    } catch (err) {
+    } catch {
       alert('Failed to load file. Ensure it is a valid JSON configuration.');
     }
     closeMenus();
@@ -68,7 +67,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       <nav className="menu-nav">
         {/* FILE MENU */}
         <div className="menu-item">
-          <button 
+          <button
             className={`menu-btn ${activeMenu === 'file' ? 'active' : ''}`}
             onClick={() => toggleMenu('file')}
           >
@@ -90,7 +89,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
         {/* TYPE SELECTOR MENU */}
         <div className="menu-item">
-          <button 
+          <button
             className={`menu-btn ${activeMenu === 'type' ? 'active' : ''}`}
             onClick={() => toggleMenu('type')}
           >
@@ -98,7 +97,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           </button>
           {activeMenu === 'type' && (
             <div className="dropdown-menu">
-              {(['DFA', 'NFA', 'PDA', 'TM'] as AutomatonType[]).map((type) => (
+              {(['DFA', 'NFA', 'PDA', 'TM'] as MachineType[]).map((type) => (
                 <button
                   key={type}
                   className={currentType === type ? 'selected' : ''}
@@ -119,7 +118,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
         {/* SIMULATION MENU */}
         <div className="menu-item">
-          <button 
+          <button
             className={`menu-btn ${activeMenu === 'simulate' ? 'active' : ''}`}
             onClick={() => toggleMenu('simulate')}
           >
