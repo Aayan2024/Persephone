@@ -1,12 +1,25 @@
-import React, { useReducer, useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import MenuBar from './components/MenuBar';
-import { initialAutomatonState, automatonReducer } from './store';
-import { AutomatonType } from './engine/types';
+import { useStore } from './store';
+import { MachineType, Automaton } from './engine/types';
 
 export default function App() {
-  const [state, dispatch] = useReducer(automatonReducer, initialAutomatonState);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
-  const [testInput, setTestInput] = useState<string>('');
+  const {
+    state,
+    currentStep,
+    addState,
+    setMachineType,
+    loadAutomaton,
+    clear,
+    setInput,
+    runSimulation,
+    stepForward,
+    stepBack,
+    resetSimulation,
+    toggleTheme,
+  } = useStore();
+
+  const isDarkMode = state.theme === 'dark';
 
   // Sync dark mode class on body element
   useEffect(() => {
@@ -18,50 +31,47 @@ export default function App() {
   }, [isDarkMode]);
 
   // Handlers for menu actions
-  const handleSelectType = (type: AutomatonType) => {
-    dispatch({ type: 'SET_TYPE', payload: type });
+  const handleSelectType = (type: MachineType) => {
+    setMachineType(type);
   };
 
   const handleNew = () => {
     if (window.confirm('Are you sure you want to create a new machine? Unsaved changes will be lost.')) {
-      dispatch({ type: 'RESET' });
+      clear();
     }
   };
 
-  const handleLoadState = (loadedData: any) => {
-    dispatch({ type: 'LOAD_STATE', payload: loadedData });
+  const handleLoadState = (loadedData: Automaton) => {
+    loadAutomaton(loadedData);
   };
 
-  const getCurrentState = () => {
-    return state;
+  const getCurrentState = (): Automaton => {
+    return state.automaton;
   };
 
-  const handleRunSimulation = () => {
-    dispatch({ type: 'RUN_SIMULATION', payload: testInput });
-  };
-
-  const handleStepSimulation = () => {
-    dispatch({ type: 'STEP_SIMULATION' });
-  };
-
-  const handleResetSimulation = () => {
-    dispatch({ type: 'RESET_SIMULATION' });
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = Math.round(e.clientX - rect.left);
+      const y = Math.round(e.clientY - rect.top);
+      addState(x, y);
+    }
   };
 
   return (
     <div className={`app-container ${isDarkMode ? 'dark' : 'light'}`}>
       {/* Top Menu Bar */}
       <MenuBar
-        currentType={state.type}
+        currentType={state.automaton.type}
         onSelectType={handleSelectType}
         onNew={handleNew}
         onLoadState={handleLoadState}
         getCurrentState={getCurrentState}
         isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
-        onRunSimulation={handleRunSimulation}
-        onStepSimulation={handleStepSimulation}
-        onResetSimulation={handleResetSimulation}
+        onToggleDarkMode={toggleTheme}
+        onRunSimulation={runSimulation}
+        onStepSimulation={stepForward}
+        onResetSimulation={resetSimulation}
       />
 
       {/* Main Workspace Area */}
@@ -74,41 +84,54 @@ export default function App() {
             <input
               id="test-input"
               type="text"
-              value={testInput}
-              onChange={(e) => setTestInput(e.target.value)}
+              value={state.inputString}
+              onChange={(e) => setInput(e.target.value)}
               placeholder="e.g. 10110"
             />
           </div>
 
           <div className="button-group">
-            <button className="primary-btn" onClick={handleRunSimulation}>
+            <button className="primary-btn" onClick={runSimulation}>
               ▶ Run
             </button>
-            <button className="secondary-btn" onClick={handleStepSimulation}>
+            <button className="secondary-btn" onClick={stepBack} disabled={state.simStepIndex <= 0}>
+              ⏮ Back
+            </button>
+            <button className="secondary-btn" onClick={stepForward}>
               ⏭ Step
             </button>
-            <button className="outline-btn" onClick={handleResetSimulation}>
+            <button className="outline-btn" onClick={resetSimulation}>
               🔄 Reset
             </button>
           </div>
+
+          {currentStep && (
+            <div className="simulation-status">
+              <h4>Current Step ({state.simStepIndex + 1}/{state.simResult?.steps.length})</h4>
+              <p><strong>Status:</strong> {currentStep.status}</p>
+              <p><strong>Description:</strong> {currentStep.description}</p>
+            </div>
+          )}
 
           <hr />
 
           <div className="machine-info">
             <h4>Machine Details</h4>
-            <p><strong>Type:</strong> {state.type}</p>
-            <p><strong>States:</strong> {state.nodes?.length || 0}</p>
-            <p><strong>Transitions:</strong> {state.edges?.length || 0}</p>
+            <p><strong>Name:</strong> {state.automaton.name}</p>
+            <p><strong>Type:</strong> {state.automaton.type}</p>
+            <p><strong>States:</strong> {state.automaton.states.length}</p>
+            <p><strong>Transitions:</strong> {state.automaton.transitions.length}</p>
+            <p><strong>Alphabet:</strong> Σ = {'{'}{state.automaton.alphabet.join(', ')}{'}'}</p>
           </div>
         </aside>
 
         {/* Interactive Canvas Area */}
-        <main className="canvas-container" id="persephone-canvas">
+        <main className="canvas-container" id="persephone-canvas" onClick={handleCanvasClick}>
           <div className="canvas-watermark">
-            <h2>{state.type} Canvas</h2>
-            <p>Click to add states or drag transitions</p>
+            <h2>{state.automaton.type} Canvas</h2>
+            <p>Click empty space to add a new state</p>
           </div>
-          
+
           {/* Node and Edge renderers connect here */}
         </main>
       </div>
