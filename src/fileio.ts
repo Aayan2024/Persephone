@@ -45,8 +45,8 @@ export function exportSVG(automaton: Automaton, theme: 'light' | 'dark'): void {
   const labelColor = theme === 'dark' ? '#cccccc' : '#333333';
 
   // Compute bounding box
-  const xs = automaton.states.map(s => s.x);
-  const ys = automaton.states.map(s => s.y);
+  const xs = automaton.states.map((s: State) => s.x);
+  const ys = automaton.states.map((s: State) => s.y);
   const minX = Math.min(...xs) - 80;
   const minY = Math.min(...ys) - 80;
   const maxX = Math.max(...xs) + 80;
@@ -54,7 +54,7 @@ export function exportSVG(automaton: Automaton, theme: 'light' | 'dark'): void {
   const W = maxX - minX || 400;
   const H = maxY - minY || 300;
 
-  const statesSVG = automaton.states.map(s => {
+  const statesSVG = automaton.states.map((s: State) => {
     const cx = s.x - minX;
     const cy = s.y - minY;
     const acceptRing = s.isAccept
@@ -72,7 +72,7 @@ export function exportSVG(automaton: Automaton, theme: 'light' | 'dark'): void {
   }).join('\n');
 
   const transMap = new Map<string, string[]>();
-  automaton.transitions.forEach(t => {
+  automaton.transitions.forEach((t: Transition) => {
     const key = `${t.from}__${t.to}`;
     const rev = `${t.to}__${t.from}`;
     const label = t.symbols.join(',');
