@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import MenuBar from './components/MenuBar';
 import { useStore } from './store';
-import { MachineType, Automaton } from './engine/types';
+import { MachineType, Automaton } from './engines/types';
 
 export default function App() {
   const {
