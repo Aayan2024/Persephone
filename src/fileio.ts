@@ -1,4 +1,4 @@
-import type { Automaton } from '../engine/types';
+import type { Automaton } from '../engines/types';
 
 // ── Save / Load JSON ──────────────────────────
 
