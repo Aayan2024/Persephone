@@ -47,9 +47,8 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     closeMenus();
   };
 
-  const handleExportJSON = () => {
-    const state = getCurrentState();
-    exportToJSON(state, `persephone-${currentType.toLowerCase()}.json`);
+  const handleExportSVG = () => {
+    exportToSVG('persephone-canvas'); // Line 52 MUST only have ONE argument inside the parentheses
     closeMenus();
   };
 
