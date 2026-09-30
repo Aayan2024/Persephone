@@ -44,96 +44,83 @@ export const importFromJSON = loadAutomaton;
 
 const STATE_R = 28;
 
-export function exportSVG(automaton: Automaton, theme: 'light' | 'dark'): void {
-  const bg = theme === 'dark' ? '#1e1e1e' : '#ffffff';
-  const fg = theme === 'dark' ? '#e0e0e0' : '#111111';
-  const edgeColor = theme === 'dark' ? '#888888' : '#444444';
-  const labelColor = theme === 'dark' ? '#cccccc' : '#333333';
+export function exportSVG(automatonOrId: Automaton | string, theme: 'light' | 'dark' = 'dark'): void {
+  // If passed an Automaton object directly
+  if (typeof automatonOrId === 'object' && automatonOrId !== null) {
+    const automaton = automatonOrId;
+    const bg = theme === 'dark' ? '#1e1e1e' : '#ffffff';
+    const fg = theme === 'dark' ? '#e0e0e0' : '#111111';
+    const edgeColor = theme === 'dark' ? '#888888' : '#444444';
+    const labelColor = theme === 'dark' ? '#cccccc' : '#333333';
 
-  // Compute bounding box
-  const xs = automaton.states.map((s: State) => s.x);
-  const ys = automaton.states.map((s: State) => s.y);
-  const minX = Math.min(...xs) - 80;
-  const minY = Math.min(...ys) - 80;
-  const maxX = Math.max(...xs) + 80;
-  const maxY = Math.max(...ys) + 80;
-  const W = maxX - minX || 400;
-  const H = maxY - minY || 300;
+    const xs = automaton.states.map((s: State) => s.x);
+    const ys = automaton.states.map((s: State) => s.y);
+    const minX = Math.min(...xs) - 80;
+    const minY = Math.min(...ys) - 80;
+    const maxX = Math.max(...xs) + 80;
+    const maxY = Math.max(...ys) + 80;
+    const W = maxX - minX || 400;
+    const H = maxY - minY || 300;
 
-  const statesSVG = automaton.states.map((s: State) => {
-    const cx = s.x - minX;
-    const cy = s.y - minY;
-    const acceptRing = s.isAccept
-      ? `<circle cx="${cx}" cy="${cy}" r="${STATE_R + 6}" fill="none" stroke="${fg}" stroke-width="1.5"/>`
-      : '';
-    const startArrow = s.isStart
-      ? `<line x1="${cx - STATE_R - 24}" y1="${cy}" x2="${cx - STATE_R - 2}" y2="${cy}" stroke="${fg}" stroke-width="1.5" marker-end="url(#arrow)"/>`
-      : '';
-    return `
-      ${startArrow}
-      ${acceptRing}
-      <circle cx="${cx}" cy="${cy}" r="${STATE_R}" fill="${bg}" stroke="${fg}" stroke-width="1.5"/>
-      <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="13" fill="${fg}">${escapeXML(s.label)}</text>
-    `;
-  }).join('\n');
-
-  const transMap = new Map<string, string[]>();
-  automaton.transitions.forEach((t: Transition) => {
-    const key = `${t.from}__${t.to}`;
-    const rev = `${t.to}__${t.from}`;
-    const label = t.symbols.join(',');
-    const entry = transMap.get(key) ?? [];
-    entry.push(label);
-    transMap.set(key, entry);
-    // Mark if reverse exists
-    if (!transMap.has(rev + '__curved')) {
-      transMap.set(key + '__curved', [automaton.transitions.some((tr: Transition) => tr.from === t.to && tr.to === t.from) ? 'yes' : 'no']);
-    }
-  });
-
-  const edgesSVG = automaton.transitions.map((t: Transition) => {
-    const from = automaton.states.find((s: State) => s.id === t.from)!;
-    const to = automaton.states.find((s: State) => s.id === t.to)!;
-    if (!from || !to) return '';
-    const label = t.symbols.join(',');
-
-    const fx = from.x - minX, fy = from.y - minY;
-    const tx = to.x - minX, ty = to.y - minY;
-
-    if (t.from === t.to) {
-      // Self loop
+    const statesSVG = automaton.states.map((s: State) => {
+      const cx = s.x - minX;
+      const cy = s.y - minY;
+      const acceptRing = s.isAccept
+        ? `<circle cx="${cx}" cy="${cy}" r="${STATE_R + 6}" fill="none" stroke="${fg}" stroke-width="1.5"/>`
+        : '';
+      const startArrow = s.isStart
+        ? `<line x1="${cx - STATE_R - 24}" y1="${cy}" x2="${cx - STATE_R - 2}" y2="${cy}" stroke="${fg}" stroke-width="1.5" marker-end="url(#arrow)"/>`
+        : '';
       return `
-        <circle cx="${fx}" cy="${fy - STATE_R - 22}" r="20" fill="none" stroke="${edgeColor}" stroke-width="1.5"/>
-        <text x="${fx}" y="${fy - STATE_R - 50}" text-anchor="middle" font-family="monospace" font-size="12" fill="${labelColor}">${escapeXML(label)}</text>
+        ${startArrow}
+        ${acceptRing}
+        <circle cx="${cx}" cy="${cy}" r="${STATE_R}" fill="${bg}" stroke="${fg}" stroke-width="1.5"/>
+        <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="13" fill="${fg}">${escapeXML(s.label)}</text>
       `;
-    }
+    }).join('\n');
 
-    const hasReverse = automaton.transitions.some((tr: Transition) => tr.from === t.to && tr.to === t.from);
-    const dx = tx - fx, dy = ty - fy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const ux = dx / dist, uy = dy / dist;
-    const nx = -uy, ny = ux;
-    const curve = hasReverse ? 28 : 0;
+    const edgesSVG = automaton.transitions.map((t: Transition) => {
+      const from = automaton.states.find((s: State) => s.id === t.from)!;
+      const to = automaton.states.find((s: State) => s.id === t.to)!;
+      if (!from || !to) return '';
+      const label = t.symbols.join(',');
 
-    const sx = fx + ux * STATE_R, sy = fy + uy * STATE_R;
-    const ex = tx - ux * STATE_R, ey = ty - uy * STATE_R;
-    const cpx = (sx + ex) / 2 + nx * curve;
-    const cpy = (sy + ey) / 2 + ny * curve;
+      const fx = from.x - minX, fy = from.y - minY;
+      const tx = to.x - minX, ty = to.y - minY;
 
-    const midX = (sx + ex) / 2 + nx * (curve + 14);
-    const midY = (sy + ey) / 2 + ny * (curve + 14);
+      if (t.from === t.to) {
+        return `
+          <circle cx="${fx}" cy="${fy - STATE_R - 22}" r="20" fill="none" stroke="${edgeColor}" stroke-width="1.5"/>
+          <text x="${fx}" y="${fy - STATE_R - 50}" text-anchor="middle" font-family="monospace" font-size="12" fill="${labelColor}">${escapeXML(label)}</text>
+        `;
+      }
 
-    const d = curve
-      ? `M ${sx} ${sy} Q ${cpx} ${cpy} ${ex} ${ey}`
-      : `M ${sx} ${sy} L ${ex} ${ey}`;
+      const hasReverse = automaton.transitions.some((tr: Transition) => tr.from === t.to && tr.to === t.from);
+      const dx = tx - fx, dy = ty - fy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const ux = dx / dist, uy = dy / dist;
+      const nx = -uy, ny = ux;
+      const curve = hasReverse ? 28 : 0;
 
-    return `
-      <path d="${d}" fill="none" stroke="${edgeColor}" stroke-width="1.5" marker-end="url(#arrow)"/>
-      <text x="${midX}" y="${midY}" text-anchor="middle" font-family="monospace" font-size="12" fill="${labelColor}">${escapeXML(label)}</text>
-    `;
-  }).join('\n');
+      const sx = fx + ux * STATE_R, sy = fy + uy * STATE_R;
+      const ex = tx - ux * STATE_R, ey = ty - uy * STATE_R;
+      const cpx = (sx + ex) / 2 + nx * curve;
+      const cpy = (sy + ey) / 2 + ny * curve;
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+      const midX = (sx + ex) / 2 + nx * (curve + 14);
+      const midY = (sy + ey) / 2 + ny * (curve + 14);
+
+      const d = curve
+        ? `M ${sx} ${sy} Q ${cpx} ${cpy} ${ex} ${ey}`
+        : `M ${sx} ${sy} L ${ex} ${ey}`;
+
+      return `
+        <path d="${d}" fill="none" stroke="${edgeColor}" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <text x="${midX}" y="${midY}" text-anchor="middle" font-family="monospace" font-size="12" fill="${labelColor}">${escapeXML(label)}</text>
+      `;
+    }).join('\n');
+
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
@@ -145,16 +132,29 @@ export function exportSVG(automaton: Automaton, theme: 'light' | 'dark'): void {
   ${statesSVG}
 </svg>`;
 
-  const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${automaton.name.replace(/\s+/g, '_')}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  // Fallback if passed canvas DOM ID string
+  const canvas = document.getElementById(automatonOrId);
+  if (!canvas) return;
+  const svgData = new XMLSerializer().serializeToString(canvas);
+  const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${automaton.name.replace(/\s+/g, '_')}.svg`;
+  a.download = 'automaton.svg';
   a.click();
   URL.revokeObjectURL(url);
 }
 
-// Export alias for MenuBar compatibility
 export const exportToSVG = exportSVG;
 
 function escapeXML(str: string): string {
