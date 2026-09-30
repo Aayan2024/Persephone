@@ -55,7 +55,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
   const handleExportSVG = () => {
   // Pass the current automaton object from your state/store instead of the canvas string ID
-    exportToSVG(automaton, 'dark'); // or pass theme from state if available
+    exportToSVG('persephone-canvas'); // or pass theme from state if available
     closeMenus();
   };
 
