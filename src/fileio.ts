@@ -1,4 +1,4 @@
-import type { Automaton } from '../engines/types';
+import type { Automaton, State, Transition } from './engines/types';
 
 // ── Save / Load JSON ──────────────────────────
 
@@ -12,6 +12,9 @@ export function saveAutomaton(automaton: Automaton): void {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Export alias for MenuBar compatibility
+export const exportToJSON = saveAutomaton;
 
 export function loadAutomaton(file: File): Promise<Automaton> {
   return new Promise((resolve, reject) => {
@@ -33,6 +36,9 @@ export function loadAutomaton(file: File): Promise<Automaton> {
     reader.readAsText(file);
   });
 }
+
+// Export alias for MenuBar compatibility
+export const importFromJSON = loadAutomaton;
 
 // ── SVG Export ────────────────────────────────
 
@@ -81,13 +87,13 @@ export function exportSVG(automaton: Automaton, theme: 'light' | 'dark'): void {
     transMap.set(key, entry);
     // Mark if reverse exists
     if (!transMap.has(rev + '__curved')) {
-      transMap.set(key + '__curved', [automaton.transitions.some(tr => tr.from === t.to && tr.to === t.from) ? 'yes' : 'no']);
+      transMap.set(key + '__curved', [automaton.transitions.some((tr: Transition) => tr.from === t.to && tr.to === t.from) ? 'yes' : 'no']);
     }
   });
 
-  const edgesSVG = automaton.transitions.map(t => {
-    const from = automaton.states.find(s => s.id === t.from)!;
-    const to = automaton.states.find(s => s.id === t.to)!;
+  const edgesSVG = automaton.transitions.map((t: Transition) => {
+    const from = automaton.states.find((s: State) => s.id === t.from)!;
+    const to = automaton.states.find((s: State) => s.id === t.to)!;
     if (!from || !to) return '';
     const label = t.symbols.join(',');
 
@@ -102,7 +108,7 @@ export function exportSVG(automaton: Automaton, theme: 'light' | 'dark'): void {
       `;
     }
 
-    const hasReverse = automaton.transitions.some(tr => tr.from === t.to && tr.to === t.from);
+    const hasReverse = automaton.transitions.some((tr: Transition) => tr.from === t.to && tr.to === t.from);
     const dx = tx - fx, dy = ty - fy;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const ux = dx / dist, uy = dy / dist;
@@ -147,6 +153,9 @@ export function exportSVG(automaton: Automaton, theme: 'light' | 'dark'): void {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Export alias for MenuBar compatibility
+export const exportToSVG = exportSVG;
 
 function escapeXML(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
