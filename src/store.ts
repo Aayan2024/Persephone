@@ -53,8 +53,8 @@ export type Action =
   | { type: 'SET_START'; id: string }
   | { type: 'TOGGLE_ACCEPT'; id: string }
   | { type: 'RENAME_STATE'; id: string; label: string }
-  | { type: 'ADD_TRANSITION'; from: string; to: string; symbols: string[]; pdaRules?: import('./types').PDARule[]; tmRules?: import('./types').TMRule[] }
-  | { type: 'UPDATE_TRANSITION'; id: string; symbols: string[]; pdaRules?: import('./types').PDARule[]; tmRules?: import('./types').TMRule[] }
+  | { type: 'ADD_TRANSITION'; from: string; to: string; symbols: string[]; pdaRules?: import('./engines/types').PDARule[]; tmRules?: import('./engines/types').TMRule[] }
+  | { type: 'UPDATE_TRANSITION'; id: string; symbols: string[]; pdaRules?: import('./engines/types').PDARule[]; tmRules?: import('./engines/types').TMRule[] }
   | { type: 'DELETE_TRANSITION'; id: string }
   | { type: 'SET_MACHINE_TYPE'; machineType: MachineType }
   | { type: 'SET_NAME'; name: string }
@@ -293,7 +293,7 @@ export function useStore() {
     []
   );
   const updateTransition = useCallback(
-    (id: string, symbols: string[], pdaRules?: import('./types').PDARule[], tmRules?: import('./types').TMRule[]) =>
+    (id: string, symbols: string[], pdaRules?: import('./engines/types').PDARule[], tmRules?: import('./engines/types').TMRule[]) =>
       dispatch({ type: 'UPDATE_TRANSITION', id, symbols, pdaRules, tmRules }),
     []
   );
