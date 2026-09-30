@@ -288,7 +288,7 @@ export function useStore() {
   const toggleAccept = useCallback((id: string) => dispatch({ type: 'TOGGLE_ACCEPT', id }), []);
   const renameState = useCallback((id: string, label: string) => dispatch({ type: 'RENAME_STATE', id, label }), []);
   const addTransition = useCallback(
-    (from: string, to: string, symbols: string[], pdaRules?: import('./types').PDARule[], tmRules?: import('./types').TMRule[]) =>
+    (from: string, to: string, symbols: string[], pdaRules?: import('./types').PDARule[], tmRules?: import('./engines/types').TMRule[]) =>
       dispatch({ type: 'ADD_TRANSITION', from, to, symbols, pdaRules, tmRules }),
     []
   );
