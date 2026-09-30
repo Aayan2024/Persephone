@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MachineType, Automaton } from '../engine/types';
+import { MachineType, Automaton } from '../engines/types';
 import { exportToJSON, exportToSVG, importFromJSON } from '../fileio';
 
 interface MenuBarProps {
