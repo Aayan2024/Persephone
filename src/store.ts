@@ -1,9 +1,9 @@
 import { useReducer, useCallback } from 'react';
-import type { Automaton, State, Transition, MachineType, SimResult, SimStep } from './types';
-import { simulateDFA } from './dfa';
-import { simulateNFA } from './nfa';
-import { simulatePDA } from './pda';
-import { simulateTM } from './tm';
+import type { Automaton, State, Transition, MachineType, SimResult, SimStep } from './engines/types';
+import { simulateDFA } from './engines/dfa';
+import { simulateNFA } from './engines/nfa';
+import { simulatePDA } from './engines/pda';
+import { simulateTM } from './engines/tm';
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 9);
