@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import MenuBar from './components/MenuBar';
 import { useStore } from './store';
 import { MachineType, Automaton } from './engines/types';
