@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import MenuBar from './components/MenuBar';
 import { useStore } from './store';
 import { MachineType, Automaton } from './engines/types';
@@ -21,22 +21,23 @@ export default function App() {
 
   const isDarkMode = state.theme === 'dark';
 
-  // Sync dark mode class on body element
+  // Apply dark class to root element so CSS variables cascade correctly
   useEffect(() => {
+    const root = document.getElementById('root');
+    if (!root) return;
     if (isDarkMode) {
-      document.body.classList.add('dark-mode');
+      root.classList.add('dark');
     } else {
-      document.body.classList.remove('dark-mode');
+      root.classList.remove('dark');
     }
   }, [isDarkMode]);
 
-  // Handlers for menu actions
   const handleSelectType = (type: MachineType) => {
     setMachineType(type);
   };
 
   const handleNew = () => {
-    if (window.confirm('Are you sure you want to create a new machine? Unsaved changes will be lost.')) {
+    if (window.confirm('Create a new machine? Unsaved changes will be lost.')) {
       clear();
     }
   };
@@ -50,6 +51,7 @@ export default function App() {
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only add state on direct canvas click, not on child elements
     if (e.target === e.currentTarget) {
       const rect = e.currentTarget.getBoundingClientRect();
       const x = Math.round(e.clientX - rect.left);
@@ -58,9 +60,11 @@ export default function App() {
     }
   };
 
+  const hasStates = state.automaton.states.length > 0;
+
   return (
     <div className={`app-container ${isDarkMode ? 'dark' : 'light'}`}>
-      {/* Top Menu Bar */}
+
       <MenuBar
         currentType={state.automaton.type}
         onSelectType={handleSelectType}
@@ -74,11 +78,12 @@ export default function App() {
         onResetSimulation={resetSimulation}
       />
 
-      {/* Main Workspace Area */}
       <div className="workspace-layout">
-        {/* Left Toolbar / Control Panel */}
+
+        {/* Left sidebar */}
         <aside className="sidebar-panel">
           <h3>Simulation Controls</h3>
+
           <div className="control-group">
             <label htmlFor="test-input">Input String:</label>
             <input
@@ -91,25 +96,20 @@ export default function App() {
           </div>
 
           <div className="button-group">
-            <button className="primary-btn" onClick={runSimulation}>
-              ▶ Run
-            </button>
-            <button className="secondary-btn" onClick={stepBack} disabled={state.simStepIndex <= 0}>
-              ⏮ Back
-            </button>
-            <button className="secondary-btn" onClick={stepForward}>
-              ⏭ Step
-            </button>
-            <button className="outline-btn" onClick={resetSimulation}>
-              🔄 Reset
-            </button>
+            <button className="primary-btn" onClick={runSimulation}>▶ Run</button>
+            <button onClick={stepBack} disabled={state.simStepIndex <= 0}>⏮ Back</button>
+            <button onClick={stepForward}>⏭ Step</button>
+            <button onClick={resetSimulation}>🔄 Reset</button>
           </div>
 
           {currentStep && (
-            <div className="simulation-status">
-              <h4>Current Step ({state.simStepIndex + 1}/{state.simResult?.steps.length})</h4>
+            <div
+              className="simulation-status"
+              data-status={currentStep.status}
+            >
+              <h4>Step {state.simStepIndex + 1} / {state.simResult?.steps.length}</h4>
               <p><strong>Status:</strong> {currentStep.status}</p>
-              <p><strong>Description:</strong> {currentStep.description}</p>
+              <p><strong>Info:</strong> {currentStep.description}</p>
             </div>
           )}
 
@@ -121,19 +121,47 @@ export default function App() {
             <p><strong>Type:</strong> {state.automaton.type}</p>
             <p><strong>States:</strong> {state.automaton.states.length}</p>
             <p><strong>Transitions:</strong> {state.automaton.transitions.length}</p>
-            <p><strong>Alphabet:</strong> Σ = {'{'}{state.automaton.alphabet.join(', ')}{'}'}</p>
+            <p><strong>Alphabet:</strong> Σ = {'{'}{ state.automaton.alphabet.join(', ') || '∅' }{'}'}</p>
           </div>
         </aside>
 
-        {/* Interactive Canvas Area */}
-        <main className="canvas-container" id="persephone-canvas" onClick={handleCanvasClick}>
+        {/* Canvas */}
+        <main
+          className={`canvas-container${hasStates ? ' has-states' : ''}`}
+          id="persephone-canvas"
+          onClick={handleCanvasClick}
+        >
           <div className="canvas-watermark">
             <h2>{state.automaton.type} Canvas</h2>
-            <p>Click empty space to add a new state</p>
+            <p>Click to add a state</p>
           </div>
 
-          {/* Node and Edge renderers connect here */}
+          {/* Render states as positioned divs */}
+          {state.automaton.states.map(s => {
+            const isHighlighted = currentStep?.stateId === s.id || currentStep?.activeStates?.includes(s.id);
+            const isFinal = currentStep?.status === 'accepted' && isHighlighted;
+            const isDead = currentStep?.status === 'dead' && isHighlighted;
+
+            return (
+              <div
+                key={s.id}
+                className={[
+                  'state-node',
+                  s.isStart ? 'is-start' : '',
+                  s.isAccept ? 'is-accept' : '',
+                  isHighlighted && !isFinal && !isDead ? 'highlighted' : '',
+                  isFinal ? 'accepted' : '',
+                  isDead ? 'dead' : '',
+                ].filter(Boolean).join(' ')}
+                style={{ left: s.x, top: s.y }}
+                title={s.label}
+              >
+                {s.label}
+              </div>
+            );
+          })}
         </main>
+
       </div>
     </div>
   );
