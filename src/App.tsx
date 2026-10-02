@@ -1,65 +1,51 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import MenuBar from './components/MenuBar';
+import Canvas, { CanvasTool } from './components/Canvas';
 import { useStore } from './store';
 import { MachineType, Automaton } from './engines/types';
 
+// Tool definitions
+const TOOLS: { id: CanvasTool; label: string; key: string; icon: string }[] = [
+  { id: 'select',     label: 'Select / Move', key: 'V', icon: '↖' },
+  { id: 'state',      label: 'Add State',     key: 'S', icon: '○' },
+  { id: 'transition', label: 'Add Transition', key: 'T', icon: '→' },
+  { id: 'delete',     label: 'Delete',         key: 'X', icon: '✕' },
+];
+
 export default function App() {
   const {
-    state,
-    currentStep,
-    addState,
-    setMachineType,
-    loadAutomaton,
-    clear,
-    setInput,
-    runSimulation,
-    stepForward,
-    stepBack,
-    resetSimulation,
-    toggleTheme,
+    state, currentStep,
+    addState, moveState, deleteState,
+    setStart, toggleAccept, renameState,
+    addTransition, updateTransition, deleteTransition,
+    setMachineType, loadAutomaton, clear,
+    setInput, runSimulation, stepForward, stepBack, resetSimulation,
+    toggleTheme, autoLayout,
   } = useStore();
 
+  const [tool, setTool] = useState<CanvasTool>('select');
   const isDarkMode = state.theme === 'dark';
 
-  // Apply dark class to root element so CSS variables cascade correctly
+  // Apply dark class to #root so CSS vars cascade
   useEffect(() => {
     const root = document.getElementById('root');
     if (!root) return;
-    if (isDarkMode) {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    isDarkMode ? root.classList.add('dark') : root.classList.remove('dark');
   }, [isDarkMode]);
 
-  const handleSelectType = (type: MachineType) => {
-    setMachineType(type);
-  };
+  // Keyboard shortcuts for tools
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const t = TOOLS.find(t => t.key === e.key.toUpperCase());
+      if (t) setTool(t.id);
+      if (e.key === 'Escape') setTool('select');
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
-  const handleNew = () => {
-    if (window.confirm('Create a new machine? Unsaved changes will be lost.')) {
-      clear();
-    }
-  };
-
-  const handleLoadState = (loadedData: Automaton) => {
-    loadAutomaton(loadedData);
-  };
-
-  const getCurrentState = (): Automaton => {
-    return state.automaton;
-  };
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Only add state on direct canvas click, not on child elements
-    if (e.target === e.currentTarget) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = Math.round(e.clientX - rect.left);
-      const y = Math.round(e.clientY - rect.top);
-      addState(x, y);
-    }
-  };
-
+  const getCurrentState = (): Automaton => state.automaton;
   const hasStates = state.automaton.states.length > 0;
 
   return (
@@ -67,9 +53,9 @@ export default function App() {
 
       <MenuBar
         currentType={state.automaton.type}
-        onSelectType={handleSelectType}
-        onNew={handleNew}
-        onLoadState={handleLoadState}
+        onSelectType={(t: MachineType) => setMachineType(t)}
+        onNew={() => { if (window.confirm('Create new machine? Unsaved changes will be lost.')) clear(); }}
+        onLoadState={loadAutomaton}
         getCurrentState={getCurrentState}
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleTheme}
@@ -80,87 +66,108 @@ export default function App() {
 
       <div className="workspace-layout">
 
-        {/* Left sidebar */}
+        {/* ── Left Sidebar ── */}
         <aside className="sidebar-panel">
-          <h3>Simulation Controls</h3>
 
+          {/* Tool selector */}
+          <h3>Tools</h3>
+          <div className="tool-group">
+            {TOOLS.map(t => (
+              <button
+                key={t.id}
+                className={`tool-btn${tool === t.id ? ' active' : ''}`}
+                onClick={() => setTool(t.id)}
+                title={`${t.label} (${t.key})`}
+              >
+                <span className="tool-icon">{t.icon}</span>
+                <span className="tool-label">{t.label}</span>
+                <span className="tool-key">{t.key}</span>
+              </button>
+            ))}
+          </div>
+
+          <hr />
+
+          {/* Simulation controls */}
+          <h3>Simulation</h3>
           <div className="control-group">
             <label htmlFor="test-input">Input String:</label>
             <input
               id="test-input"
               type="text"
               value={state.inputString}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="e.g. 10110"
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') runSimulation(); }}
+              placeholder="e.g. aab"
             />
           </div>
-
           <div className="button-group">
-            <button className="primary-btn" onClick={runSimulation}>▶ Run</button>
-            <button onClick={stepBack} disabled={state.simStepIndex <= 0}>⏮ Back</button>
-            <button onClick={stepForward}>⏭ Step</button>
-            <button onClick={resetSimulation}>🔄 Reset</button>
+            <button className="primary-btn" onClick={runSimulation} title="Run full simulation">▶ Run</button>
+            <button onClick={stepBack}    disabled={state.simStepIndex <= 0} title="Step back">⏮ Back</button>
+            <button onClick={stepForward} title="Step forward">⏭ Step</button>
+            <button onClick={resetSimulation} title="Reset simulation">↺ Reset</button>
           </div>
 
+          {/* Simulation result */}
           {currentStep && (
-            <div
-              className="simulation-status"
-              data-status={currentStep.status}
-            >
-              <h4>Step {state.simStepIndex + 1} / {state.simResult?.steps.length}</h4>
-              <p><strong>Status:</strong> {currentStep.status}</p>
-              <p><strong>Info:</strong> {currentStep.description}</p>
+            <div className="simulation-status" data-status={currentStep.status}>
+              <div className="sim-step-header">
+                Step {state.simStepIndex + 1} / {state.simResult?.steps.length}
+              </div>
+              <div className="sim-status-badge" data-status={currentStep.status}>
+                {currentStep.status.toUpperCase()}
+              </div>
+              <div className="sim-description">{currentStep.description}</div>
             </div>
           )}
 
           <hr />
 
-          <div className="machine-info">
-            <h4>Machine Details</h4>
-            <p><strong>Name:</strong> {state.automaton.name}</p>
-            <p><strong>Type:</strong> {state.automaton.type}</p>
-            <p><strong>States:</strong> {state.automaton.states.length}</p>
-            <p><strong>Transitions:</strong> {state.automaton.transitions.length}</p>
-            <p><strong>Alphabet:</strong> Σ = {'{'}{ state.automaton.alphabet.join(', ') || '∅' }{'}'}</p>
+          {/* Canvas tools */}
+          <h3>Canvas</h3>
+          <div className="tool-group">
+            <button className="tool-btn" onClick={autoLayout} disabled={!hasStates}>
+              <span className="tool-icon">⊞</span>
+              <span className="tool-label">Auto Layout</span>
+            </button>
+            <button className="tool-btn" onClick={() => { if (window.confirm('Clear all?')) clear(); }}>
+              <span className="tool-icon">⬚</span>
+              <span className="tool-label">Clear All</span>
+            </button>
           </div>
+
+          <hr />
+
+          {/* Machine info */}
+          <h3>Machine Info</h3>
+          <div className="machine-info">
+            <div className="info-row"><span>Name</span><span>{state.automaton.name}</span></div>
+            <div className="info-row"><span>Type</span><span>{state.automaton.type}</span></div>
+            <div className="info-row"><span>States</span><span>{state.automaton.states.length}</span></div>
+            <div className="info-row"><span>Transitions</span><span>{state.automaton.transitions.length}</span></div>
+            <div className="info-row">
+              <span>Alphabet Σ</span>
+              <span>{state.automaton.alphabet.length ? state.automaton.alphabet.join(', ') : '∅'}</span>
+            </div>
+          </div>
+
         </aside>
 
-        {/* Canvas */}
-        <main
-          className={`canvas-container${hasStates ? ' has-states' : ''}`}
-          id="persephone-canvas"
-          onClick={handleCanvasClick}
-        >
-          <div className="canvas-watermark">
-            <h2>{state.automaton.type} Canvas</h2>
-            <p>Click to add a state</p>
-          </div>
-
-          {/* Render states as positioned divs */}
-          {state.automaton.states.map(s => {
-            const isHighlighted = currentStep?.stateId === s.id || currentStep?.activeStates?.includes(s.id);
-            const isFinal = currentStep?.status === 'accepted' && isHighlighted;
-            const isDead = currentStep?.status === 'dead' && isHighlighted;
-
-            return (
-              <div
-                key={s.id}
-                className={[
-                  'state-node',
-                  s.isStart ? 'is-start' : '',
-                  s.isAccept ? 'is-accept' : '',
-                  isHighlighted && !isFinal && !isDead ? 'highlighted' : '',
-                  isFinal ? 'accepted' : '',
-                  isDead ? 'dead' : '',
-                ].filter(Boolean).join(' ')}
-                style={{ left: s.x, top: s.y }}
-                title={s.label}
-              >
-                {s.label}
-              </div>
-            );
-          })}
-        </main>
+        {/* ── Canvas ── */}
+        <Canvas
+          automaton={state.automaton}
+          tool={tool}
+          currentStep={currentStep}
+          onAddState={addState}
+          onMoveState={moveState}
+          onDeleteState={deleteState}
+          onDeleteTransition={deleteTransition}
+          onSetStart={setStart}
+          onToggleAccept={toggleAccept}
+          onRenameState={renameState}
+          onAddTransition={addTransition}
+          onUpdateTransition={updateTransition}
+        />
 
       </div>
     </div>
