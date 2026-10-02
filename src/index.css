@@ -543,3 +543,151 @@ hr {
   height: 1px;
   background: var(--border);
 }
+
+/* ── Tool buttons in sidebar ── */
+.tool-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 6px;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  min-height: 24px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.tool-btn:hover:not(:disabled) {
+  background: var(--btn-hover);
+  border-color: var(--border);
+}
+
+.tool-btn.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+.tool-btn.active:hover {
+  background: var(--accent);
+}
+
+.tool-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tool-icon {
+  font-size: 13px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tool-label {
+  flex: 1;
+}
+
+.tool-key {
+  font-size: 10px;
+  color: var(--text-dim);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0 4px;
+  border-radius: 2px;
+  font-family: monospace;
+  line-height: 14px;
+}
+
+.tool-btn.active .tool-key {
+  color: var(--accent-fg);
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.3);
+}
+
+/* ── Updated machine info rows ── */
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  padding: 2px 0;
+  gap: 8px;
+}
+
+.info-row span:first-child {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.info-row span:last-child {
+  color: var(--text);
+  font-family: monospace;
+  font-size: 11px;
+  text-align: right;
+  word-break: break-all;
+}
+
+/* ── Simulation status in sidebar ── */
+.simulation-status {
+  margin: 4px 8px 4px;
+  padding: 8px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.simulation-status[data-status='accepted'] { border-left-color: var(--accepted-stroke); }
+.simulation-status[data-status='rejected'] { border-left-color: var(--dead-stroke); }
+.simulation-status[data-status='dead']     { border-left-color: var(--dead-stroke); }
+.simulation-status[data-status='running']  { border-left-color: var(--accent); }
+
+.sim-step-header {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sim-status-badge {
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.sim-status-badge[data-status='accepted'] { color: var(--accepted-stroke); }
+.sim-status-badge[data-status='rejected'] { color: var(--dead-stroke); }
+.sim-status-badge[data-status='dead']     { color: var(--dead-stroke); }
+.sim-status-badge[data-status='running']  { color: var(--accent); }
+
+.sim-description {
+  color: var(--text);
+  line-height: 1.5;
+  font-family: monospace;
+  font-size: 10.5px;
+  word-break: break-word;
+}
+
+/* ── Canvas wrap (inside workspace) ── */
+.canvas-wrap {
+  flex: 1;
+  background: var(--bg-canvas);
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
