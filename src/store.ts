@@ -1,5 +1,5 @@
 import { useReducer, useCallback } from 'react';
-import type { Automaton, State, Transition, MachineType, SimResult, SimStep } from './engines/types';
+import type { Automaton, State, Transition, MachineType, SimResult, SimStep, PDARule, TMRule } from './engines/types';
 import { simulateDFA } from './engines/dfa';
 import { simulateNFA } from './engines/nfa';
 import { simulatePDA } from './engines/pda';
@@ -13,13 +13,11 @@ function uid(): string {
 
 export interface AppState {
   automaton: Automaton;
-  // Simulation
   simResult: SimResult | null;
-  simStepIndex: number;       // which step we're on (-1 = not started)
+  simStepIndex: number;
   isPlaying: boolean;
   inputString: string;
-  // UI
-  selectedIds: Set<string>;   // selected state IDs
+  selectedIds: Set<string>;
   theme: 'light' | 'dark';
 }
 
@@ -53,8 +51,8 @@ export type Action =
   | { type: 'SET_START'; id: string }
   | { type: 'TOGGLE_ACCEPT'; id: string }
   | { type: 'RENAME_STATE'; id: string; label: string }
-  | { type: 'ADD_TRANSITION'; from: string; to: string; symbols: string[]; pdaRules?: import('./engines/types').PDARule[]; tmRules?: import('./engines/types').TMRule[] }
-  | { type: 'UPDATE_TRANSITION'; id: string; symbols: string[]; pdaRules?: import('./engines/types').PDARule[]; tmRules?: import('./engines/types').TMRule[] }
+  | { type: 'ADD_TRANSITION'; from: string; to: string; symbols: string[]; pdaRules?: PDARule[]; tmRules?: TMRule[] }
+  | { type: 'UPDATE_TRANSITION'; id: string; symbols: string[]; pdaRules?: PDARule[]; tmRules?: TMRule[] }
   | { type: 'DELETE_TRANSITION'; id: string }
   | { type: 'SET_MACHINE_TYPE'; machineType: MachineType }
   | { type: 'SET_NAME'; name: string }
@@ -134,7 +132,6 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case 'ADD_TRANSITION': {
-      // If transition between same pair exists, merge symbols
       const existing = state.automaton.transitions.find(
         t => t.from === action.from && t.to === action.to
       );
@@ -216,7 +213,6 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'STEP_FORWARD': {
       if (!state.simResult) {
-        // Auto-run first
         const next = reducer(state, { type: 'RUN_SIMULATION' });
         return { ...next, simStepIndex: 0 };
       }
@@ -252,7 +248,6 @@ function reducer(state: AppState, action: Action): AppState {
     case 'AUTO_LAYOUT': {
       const { states } = state.automaton;
       if (states.length === 0) return state;
-      // Simple circular layout
       const cx = 500, cy = 350;
       const r = Math.min(300, 80 * states.length);
       const newStates = states.map((s, i) => {
@@ -288,12 +283,12 @@ export function useStore() {
   const toggleAccept = useCallback((id: string) => dispatch({ type: 'TOGGLE_ACCEPT', id }), []);
   const renameState = useCallback((id: string, label: string) => dispatch({ type: 'RENAME_STATE', id, label }), []);
   const addTransition = useCallback(
-    (from: string, to: string, symbols: string[], pdaRules?: import('./types').PDARule[], tmRules?: import('./engines/types').TMRule[]) =>
+    (from: string, to: string, symbols: string[], pdaRules?: PDARule[], tmRules?: TMRule[]) =>
       dispatch({ type: 'ADD_TRANSITION', from, to, symbols, pdaRules, tmRules }),
     []
   );
   const updateTransition = useCallback(
-    (id: string, symbols: string[], pdaRules?: import('./engines/types').PDARule[], tmRules?: import('./engines/types').TMRule[]) =>
+    (id: string, symbols: string[], pdaRules?: PDARule[], tmRules?: TMRule[]) =>
       dispatch({ type: 'UPDATE_TRANSITION', id, symbols, pdaRules, tmRules }),
     []
   );
