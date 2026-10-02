@@ -47,14 +47,13 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     closeMenus();
   };
 
-  const handleExportSVG = () => {
-    exportToSVG('persephone-canvas'); // Line 52 MUST only have ONE argument inside the parentheses
+  const handleExportJSON = () => {
+    exportToJSON(getCurrentState());
     closeMenus();
   };
 
   const handleExportSVG = () => {
-  // Pass the current automaton object from your state/store instead of the canvas string ID
-    exportToSVG('persephone-canvas'); // or pass theme from state if available
+    exportToSVG(getCurrentState(), isDarkMode ? 'dark' : 'light');
     closeMenus();
   };
 
