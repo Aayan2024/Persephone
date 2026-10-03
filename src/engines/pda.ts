@@ -1,96 +1,109 @@
 import type { Automaton, SimResult, SimStep } from './types';
 
-const BLANK = '_';
-const MAX_STEPS = 10000;
+const EPSILON = 'ε';
 
-// For TM, input tokens are placed as individual tape cells
 function tokenize(input: string): string[] {
-  if (input.trim() === '') return [BLANK];
+  if (input.trim() === '') return [];
   return input.split(',').map(s => s.trim()).filter(Boolean);
 }
 
-export function simulateTM(automaton: Automaton, input: string): SimResult {
+interface PDAConfig {
+  stateId: string;
+  inputPos: number;
+  stack: string[];
+}
+
+export function simulatePDA(automaton: Automaton, input: string): SimResult {
   const steps: SimStep[] = [];
+  const tokens = tokenize(input);
   const startState = automaton.states.find(s => s.isStart);
 
   if (!startState) {
     return { accepted: false, steps: [], reason: 'No start state defined.' };
   }
 
-  const tape: string[] = tokenize(input);
-  let head = 0;
-  let currentId = startState.id;
-  let stepCount = 0;
+  let configs: PDAConfig[] = [{ stateId: startState.id, inputPos: 0, stack: ['Z'] }];
 
   steps.push({
-    stateId: currentId,
-    inputPos: head,
-    tape: [...tape],
-    tapeHead: head,
-    description: `Start in ${startState.label}, head at position 0`,
+    stateId: startState.id,
+    inputPos: 0,
+    stack: ['Z'],
+    description: `Start in ${startState.label}, stack: [Z]`,
     status: 'running',
   });
 
-  while (stepCount < MAX_STEPS) {
-    const state = automaton.states.find(s => s.id === currentId)!;
+  const maxSteps = 1000;
+  let stepCount = 0;
 
-    if (state.isAccept) {
-      steps.push({
-        stateId: currentId,
-        inputPos: head,
-        tape: [...tape],
-        tapeHead: head,
-        description: `Accepted — halted in accept state ${state.label}`,
-        status: 'accepted',
+  while (configs.length > 0 && stepCount < maxSteps) {
+    const nextConfigs: PDAConfig[] = [];
+
+    for (const config of configs) {
+      const state = automaton.states.find(s => s.id === config.stateId)!;
+      const inputToken = config.inputPos < tokens.length ? tokens[config.inputPos] : EPSILON;
+      const topOfStack = config.stack[config.stack.length - 1] ?? EPSILON;
+
+      if (config.inputPos === tokens.length && state.isAccept) {
+        steps.push({
+          stateId: config.stateId,
+          inputPos: config.inputPos,
+          stack: [...config.stack],
+          description: `Accepted — state ${state.label}, input consumed, stack: [${config.stack.join(',')}]`,
+          status: 'accepted',
+        });
+        return { accepted: true, steps, reason: `Accepted by state ${state.label}` };
+      }
+
+      const applicable = automaton.transitions.filter(t => {
+        if (t.from !== config.stateId || !t.pdaRules) return false;
+        return t.pdaRules.some(r => {
+          const inputMatch = r.input === EPSILON || r.input === inputToken;
+          const stackMatch = r.pop === EPSILON || r.pop === topOfStack;
+          return inputMatch && stackMatch;
+        });
       });
-      return { accepted: true, steps, reason: `Accepted by state ${state.label}` };
+
+      for (const trans of applicable) {
+        for (const rule of (trans.pdaRules ?? [])) {
+          const inputMatch = rule.input === EPSILON || rule.input === inputToken;
+          const stackMatch = rule.pop === EPSILON || rule.pop === topOfStack;
+          if (!inputMatch || !stackMatch) continue;
+
+          const newStack = [...config.stack];
+          if (rule.pop !== EPSILON) newStack.pop();
+          if (rule.push !== EPSILON) {
+            [...rule.push].reverse().forEach(ch => newStack.push(ch));
+          }
+
+          const newPos = rule.input === EPSILON ? config.inputPos : config.inputPos + 1;
+          const nextState = automaton.states.find(s => s.id === trans.to)!;
+          const desc = `δ(${state.label}, ${rule.input === EPSILON ? 'ε' : rule.input}, ${rule.pop === EPSILON ? 'ε' : rule.pop}) → (${nextState.label}, ${rule.push === EPSILON ? 'ε' : rule.push})`;
+
+          steps.push({
+            stateId: trans.to,
+            inputPos: newPos,
+            stack: [...newStack],
+            transitionId: trans.id,
+            description: desc,
+            status: 'running',
+          });
+
+          nextConfigs.push({ stateId: trans.to, inputPos: newPos, stack: newStack });
+        }
+      }
     }
 
-    while (head >= tape.length) tape.push(BLANK);
-    if (head < 0) { tape.unshift(BLANK); head = 0; }
-
-    const readSym = tape[head];
-    const trans = automaton.transitions.find(t => {
-      if (t.from !== currentId || !t.tmRules) return false;
-      return t.tmRules.some(r => r.read === readSym || r.read === BLANK);
-    });
-
-    if (!trans || !trans.tmRules) {
-      steps.push({
-        stateId: currentId,
-        inputPos: head,
-        tape: [...tape],
-        tapeHead: head,
-        description: `Rejected — no transition from ${state.label} on '${readSym}'`,
-        status: 'rejected',
-      });
-      return { accepted: false, steps, reason: `Rejected — halted in non-accept state ${state.label}` };
-    }
-
-    const rule = trans.tmRules.find(r => r.read === readSym || r.read === BLANK)!;
-    const nextState = automaton.states.find(s => s.id === trans.to)!;
-
-    tape[head] = rule.write;
-    const oldHead = head;
-    if (rule.move === 'R') head++;
-    else if (rule.move === 'L') head--;
-
-    if (head < 0) { tape.unshift(BLANK); head = 0; }
-    while (head >= tape.length) tape.push(BLANK);
-
-    steps.push({
-      stateId: trans.to,
-      inputPos: head,
-      tape: [...tape],
-      tapeHead: head,
-      transitionId: trans.id,
-      description: `δ(${state.label}, ${readSym}) → (${nextState.label}, write '${rule.write}', move ${rule.move}) [pos ${oldHead}→${head}]`,
-      status: 'running',
-    });
-
-    currentId = trans.to;
+    configs = nextConfigs;
     stepCount++;
   }
 
-  return { accepted: false, steps, reason: `Halted after ${MAX_STEPS} steps — possible infinite loop` };
+  steps.push({
+    stateId: configs[0]?.stateId ?? '',
+    inputPos: tokens.length,
+    stack: configs[0]?.stack ?? [],
+    description: 'Rejected — no accepting configuration reached',
+    status: 'rejected',
+  });
+
+  return { accepted: false, steps, reason: 'Rejected — no accepting configuration reached' };
 }
