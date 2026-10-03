@@ -1,15 +1,19 @@
 import type { Automaton, SimResult, SimStep } from './types';
 
+// Input is comma-separated tokens e.g. "BL,SC,U4AIE,24,101"
+// Each token is matched as a whole atomic symbol against transition labels.
+function tokenize(input: string): string[] {
+  if (input.trim() === '') return [];
+  return input.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 export function simulateDFA(automaton: Automaton, input: string): SimResult {
   const steps: SimStep[] = [];
+  const tokens = tokenize(input);
   const startState = automaton.states.find(s => s.isStart);
 
   if (!startState) {
-    return {
-      accepted: false,
-      steps: [],
-      reason: 'No start state defined.',
-    };
+    return { accepted: false, steps: [], reason: 'No start state defined.' };
   }
 
   let currentId = startState.id;
@@ -21,21 +25,24 @@ export function simulateDFA(automaton: Automaton, input: string): SimResult {
     status: 'running',
   });
 
-  for (let i = 0; i < input.length; i++) {
-    const ch = input[i];
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
     const current = automaton.states.find(s => s.id === currentId)!;
     const transition = automaton.transitions.find(
-      t => t.from === currentId && t.symbols.includes(ch)
+      t => t.from === currentId && t.symbols.includes(token)
     );
 
     if (!transition) {
       steps.push({
         stateId: currentId,
         inputPos: i + 1,
-        description: `No transition from ${current.label} on '${ch}' — rejected`,
+        description: `No transition from ${current.label} on '${token}' — rejected`,
         status: 'dead',
       });
-      return { accepted: false, steps, reason: `Dead state: no transition from ${current.label} on '${ch}'` };
+      return {
+        accepted: false, steps,
+        reason: `Dead state: no transition from ${current.label} on '${token}'`,
+      };
     }
 
     const nextState = automaton.states.find(s => s.id === transition.to)!;
@@ -43,7 +50,7 @@ export function simulateDFA(automaton: Automaton, input: string): SimResult {
       stateId: transition.to,
       inputPos: i + 1,
       transitionId: transition.id,
-      description: `δ(${current.label}, ${ch}) → ${nextState.label}`,
+      description: `δ(${current.label}, ${token}) → ${nextState.label}`,
       status: 'running',
     });
     currentId = transition.to;
@@ -54,7 +61,7 @@ export function simulateDFA(automaton: Automaton, input: string): SimResult {
 
   steps.push({
     stateId: currentId,
-    inputPos: input.length,
+    inputPos: tokens.length,
     description: accepted
       ? `Accepted — ended in accept state ${finalState.label}`
       : `Rejected — ${finalState.label} is not an accept state`,
@@ -65,32 +72,17 @@ export function simulateDFA(automaton: Automaton, input: string): SimResult {
     accepted,
     steps,
     reason: accepted
-      ? `String accepted by state ${finalState.label}`
-      : `String rejected — final state ${finalState.label} is not an accept state`,
+      ? `Accepted by state ${finalState.label}`
+      : `Rejected — ${finalState.label} is not an accept state`,
   };
 }
 
 export function validateDFA(automaton: Automaton): string[] {
   const errors: string[] = [];
   const startStates = automaton.states.filter(s => s.isStart);
-
   if (startStates.length === 0) errors.push('No start state defined.');
   if (startStates.length > 1) errors.push('DFA must have exactly one start state.');
   if (automaton.states.filter(s => s.isAccept).length === 0)
     errors.push('No accept states defined.');
-
-  // Check each state has exactly one transition per alphabet symbol
-  for (const state of automaton.states) {
-    for (const sym of automaton.alphabet) {
-      const matches = automaton.transitions.filter(
-        t => t.from === state.id && t.symbols.includes(sym)
-      );
-      if (matches.length === 0)
-        errors.push(`State ${state.label}: missing transition on '${sym}'`);
-      if (matches.length > 1)
-        errors.push(`State ${state.label}: multiple transitions on '${sym}' (not deterministic)`);
-    }
-  }
-
   return errors;
 }
