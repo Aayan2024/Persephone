@@ -3,6 +3,12 @@ import type { Automaton, SimResult, SimStep } from './types';
 const BLANK = '_';
 const MAX_STEPS = 10000;
 
+// For TM, input tokens are placed as individual tape cells
+function tokenize(input: string): string[] {
+  if (input.trim() === '') return [BLANK];
+  return input.split(',').map(s => s.trim()).filter(Boolean);
+}
+
 export function simulateTM(automaton: Automaton, input: string): SimResult {
   const steps: SimStep[] = [];
   const startState = automaton.states.find(s => s.isStart);
@@ -11,8 +17,7 @@ export function simulateTM(automaton: Automaton, input: string): SimResult {
     return { accepted: false, steps: [], reason: 'No start state defined.' };
   }
 
-  // Initialize tape: input padded with blanks
-  const tape: string[] = input.length > 0 ? [...input] : [BLANK];
+  const tape: string[] = tokenize(input);
   let head = 0;
   let currentId = startState.id;
   let stepCount = 0;
@@ -29,7 +34,6 @@ export function simulateTM(automaton: Automaton, input: string): SimResult {
   while (stepCount < MAX_STEPS) {
     const state = automaton.states.find(s => s.id === currentId)!;
 
-    // Accept/reject states
     if (state.isAccept) {
       steps.push({
         stateId: currentId,
@@ -42,17 +46,13 @@ export function simulateTM(automaton: Automaton, input: string): SimResult {
       return { accepted: true, steps, reason: `Accepted by state ${state.label}` };
     }
 
-    // Extend tape if needed
     while (head >= tape.length) tape.push(BLANK);
     if (head < 0) { tape.unshift(BLANK); head = 0; }
 
     const readSym = tape[head];
-
-    // Find applicable transition
     const trans = automaton.transitions.find(t => {
-      if (t.from !== currentId) return false;
-      if (!t.tmRules) return false;
-      return t.tmRules.some(r => r.read === readSym || r.read === '_');
+      if (t.from !== currentId || !t.tmRules) return false;
+      return t.tmRules.some(r => r.read === readSym || r.read === BLANK);
     });
 
     if (!trans || !trans.tmRules) {
@@ -67,7 +67,7 @@ export function simulateTM(automaton: Automaton, input: string): SimResult {
       return { accepted: false, steps, reason: `Rejected — halted in non-accept state ${state.label}` };
     }
 
-    const rule = trans.tmRules.find(r => r.read === readSym || r.read === '_')!;
+    const rule = trans.tmRules.find(r => r.read === readSym || r.read === BLANK)!;
     const nextState = automaton.states.find(s => s.id === trans.to)!;
 
     tape[head] = rule.write;
@@ -84,7 +84,7 @@ export function simulateTM(automaton: Automaton, input: string): SimResult {
       tape: [...tape],
       tapeHead: head,
       transitionId: trans.id,
-      description: `δ(${state.label}, ${readSym}) → (${nextState.label}, write '${rule.write}', move ${rule.move}) [pos ${oldHead} → ${head}]`,
+      description: `δ(${state.label}, ${readSym}) → (${nextState.label}, write '${rule.write}', move ${rule.move}) [pos ${oldHead}→${head}]`,
       status: 'running',
     });
 
@@ -92,9 +92,5 @@ export function simulateTM(automaton: Automaton, input: string): SimResult {
     stepCount++;
   }
 
-  return {
-    accepted: false,
-    steps,
-    reason: `Halted after ${MAX_STEPS} steps — possible infinite loop`,
-  };
+  return { accepted: false, steps, reason: `Halted after ${MAX_STEPS} steps — possible infinite loop` };
 }
