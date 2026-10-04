@@ -85,16 +85,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           </button>
           {activeMenu === 'type' && (
             <div className="dropdown-menu">
-              {(['DFA', 'NFA', 'PDA', 'TM'] as MachineType[]).map(type => (
+              {(['FA', 'DFA', 'NFA', 'PDA', 'TM'] as MachineType[]).map(type => (
                 <button
                   key={type}
                   className={currentType === type ? 'selected' : ''}
                   onClick={() => { onSelectType(type); closeMenus(); }}
                 >
-                  {type === 'DFA' && 'Deterministic Finite Automaton'}
-                  {type === 'NFA' && 'Nondeterministic Finite Automaton'}
-                  {type === 'PDA' && 'Pushdown Automaton'}
-                  {type === 'TM' && 'Turing Machine'}
+                  {type === 'FA'  && 'Finite Automaton (FA)'}
+                  {type === 'DFA' && 'Deterministic Finite Automaton (DFA)'}
+                  {type === 'NFA' && 'Nondeterministic Finite Automaton (NFA)'}
+                  {type === 'PDA' && 'Pushdown Automaton (PDA)'}
+                  {type === 'TM'  && 'Turing Machine (TM)'}
                 </button>
               ))}
             </div>
