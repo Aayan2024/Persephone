@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import MenuBar from './components/MenuBar';
 import Canvas, { CanvasTool } from './components/Canvas';
+import BatchRun from './components/BatchRun';
 import { useStore } from './store';
 import { MachineType, Automaton } from './engines/types';
 
-// Tool definitions
 const TOOLS: { id: CanvasTool; label: string; key: string; icon: string }[] = [
-  { id: 'select',     label: 'Select / Move', key: 'V', icon: '↖' },
-  { id: 'state',      label: 'Add State',     key: 'S', icon: '○' },
-  { id: 'transition', label: 'Add Transition', key: 'T', icon: '→' },
-  { id: 'delete',     label: 'Delete',         key: 'X', icon: '✕' },
+  { id: 'select',     label: 'Select / Move',  key: 'V', icon: '↖' },
+  { id: 'state',      label: 'Add State',       key: 'S', icon: '○' },
+  { id: 'transition', label: 'Add Transition',  key: 'T', icon: '→' },
+  { id: 'delete',     label: 'Delete',          key: 'X', icon: '✕' },
 ];
 
 export default function App() {
@@ -24,16 +24,15 @@ export default function App() {
   } = useStore();
 
   const [tool, setTool] = useState<CanvasTool>('select');
+  const [showBatch, setShowBatch] = useState(false);
   const isDarkMode = state.theme === 'dark';
 
-  // Apply dark class to #root so CSS vars cascade
   useEffect(() => {
     const root = document.getElementById('root');
     if (!root) return;
     isDarkMode ? root.classList.add('dark') : root.classList.remove('dark');
   }, [isDarkMode]);
 
-  // Keyboard shortcuts for tools
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -62,14 +61,13 @@ export default function App() {
         onRunSimulation={runSimulation}
         onStepSimulation={stepForward}
         onResetSimulation={resetSimulation}
+        onBatchRun={() => setShowBatch(true)}
       />
 
       <div className="workspace-layout">
 
-        {/* ── Left Sidebar ── */}
         <aside className="sidebar-panel">
 
-          {/* Tool selector */}
           <h3>Tools</h3>
           <div className="tool-group">
             {TOOLS.map(t => (
@@ -88,7 +86,6 @@ export default function App() {
 
           <hr />
 
-          {/* Simulation controls */}
           <h3>Simulation</h3>
           <div className="control-group">
             <label htmlFor="test-input">Input String:</label>
@@ -98,17 +95,24 @@ export default function App() {
               value={state.inputString}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') runSimulation(); }}
-              placeholder="e.g. aab"
+              placeholder="e.g. BL.SC.U4AIE24101"
             />
           </div>
           <div className="button-group">
-            <button className="primary-btn" onClick={runSimulation} title="Run full simulation">▶ Run</button>
-            <button onClick={stepBack}    disabled={state.simStepIndex <= 0} title="Step back">⏮ Back</button>
-            <button onClick={stepForward} title="Step forward">⏭ Step</button>
-            <button onClick={resetSimulation} title="Reset simulation">↺ Reset</button>
+            <button className="primary-btn" onClick={runSimulation}>▶ Run</button>
+            <button onClick={stepBack} disabled={state.simStepIndex <= 0}>⏮ Back</button>
+            <button onClick={stepForward}>⏭ Step</button>
+            <button onClick={resetSimulation}>↺ Reset</button>
+          </div>
+          <div style={{ padding: '0 8px 8px' }}>
+            <button
+              style={{ width: '100%', textAlign: 'left', padding: '4px 8px', fontSize: 11 }}
+              onClick={() => setShowBatch(true)}
+            >
+              ⊞ Multiple Run…
+            </button>
           </div>
 
-          {/* Simulation result */}
           {currentStep && (
             <div className="simulation-status" data-status={currentStep.status}>
               <div className="sim-step-header">
@@ -123,7 +127,6 @@ export default function App() {
 
           <hr />
 
-          {/* Canvas tools */}
           <h3>Canvas</h3>
           <div className="tool-group">
             <button className="tool-btn" onClick={autoLayout} disabled={!hasStates}>
@@ -138,7 +141,6 @@ export default function App() {
 
           <hr />
 
-          {/* Machine info */}
           <h3>Machine Info</h3>
           <div className="machine-info">
             <div className="info-row"><span>Name</span><span>{state.automaton.name}</span></div>
@@ -153,7 +155,6 @@ export default function App() {
 
         </aside>
 
-        {/* ── Canvas ── */}
         <Canvas
           automaton={state.automaton}
           tool={tool}
@@ -170,6 +171,14 @@ export default function App() {
         />
 
       </div>
+
+      {showBatch && (
+        <BatchRun
+          automaton={state.automaton}
+          onClose={() => setShowBatch(false)}
+        />
+      )}
+
     </div>
   );
 }
