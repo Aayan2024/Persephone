@@ -1,24 +1,5 @@
 import type { Automaton, SimResult, SimStep } from './types';
-
-const EPSILON = 'ε';
-
-function greedyTokenize(input: string, automaton: Automaton): string[] {
-  const allSymbols = new Set<string>();
-  automaton.transitions.forEach(t =>
-    t.symbols.forEach(s => { if (s !== EPSILON) allSymbols.add(s); })
-  );
-  const symbols = [...allSymbols].sort((a, b) => b.length - a.length);
-  const tokens: string[] = [];
-  let pos = 0;
-  while (pos < input.length) {
-    let matched = false;
-    for (const sym of symbols) {
-      if (input.startsWith(sym, pos)) { tokens.push(sym); pos += sym.length; matched = true; break; }
-    }
-    if (!matched) { tokens.push(input.slice(pos)); break; }
-  }
-  return tokens;
-}
+import { greedyTokenize, symbolMatches, isEpsilon } from './symbols';
 
 interface PDAConfig { stateId: string; inputPos: number; stack: string[]; }
 
@@ -31,7 +12,7 @@ export function simulatePDA(automaton: Automaton, input: string): SimResult {
   let configs: PDAConfig[] = [{ stateId: startState.id, inputPos: 0, stack: ['Z'] }];
   steps.push({
     stateId: startState.id, inputPos: 0, stack: ['Z'],
-    description: `Start in ${startState.label}, stack: [Z]  |  tokens: [${tokens.join(', ')}]`,
+    description: `Start in ${startState.label}, stack: [Z]${tokens.length ? `  |  tokens: [${tokens.join(', ')}]` : ''}`,
     status: 'running',
   });
 
@@ -42,8 +23,8 @@ export function simulatePDA(automaton: Automaton, input: string): SimResult {
     const nextConfigs: PDAConfig[] = [];
     for (const config of configs) {
       const state = automaton.states.find(s => s.id === config.stateId)!;
-      const inputToken = config.inputPos < tokens.length ? tokens[config.inputPos] : EPSILON;
-      const topOfStack = config.stack[config.stack.length - 1] ?? EPSILON;
+      const inputToken = config.inputPos < tokens.length ? tokens[config.inputPos] : '';
+      const topOfStack = config.stack[config.stack.length - 1] ?? '';
 
       if (config.inputPos === tokens.length && state.isAccept) {
         steps.push({
@@ -57,25 +38,27 @@ export function simulatePDA(automaton: Automaton, input: string): SimResult {
       const applicable = automaton.transitions.filter(t => {
         if (t.from !== config.stateId || !t.pdaRules) return false;
         return t.pdaRules.some(r => {
-          const inputMatch = r.input === EPSILON || r.input === inputToken;
-          const stackMatch = r.pop === EPSILON || r.pop === topOfStack;
+          const inputMatch = isEpsilon(r.input) || (inputToken !== '' && symbolMatches(r.input, inputToken));
+          const stackMatch = isEpsilon(r.pop) || r.pop === topOfStack;
           return inputMatch && stackMatch;
         });
       });
 
       for (const trans of applicable) {
         for (const rule of (trans.pdaRules ?? [])) {
-          const inputMatch = rule.input === EPSILON || rule.input === inputToken;
-          const stackMatch = rule.pop === EPSILON || rule.pop === topOfStack;
+          const inputMatch = isEpsilon(rule.input) || (inputToken !== '' && symbolMatches(rule.input, inputToken));
+          const stackMatch = isEpsilon(rule.pop) || rule.pop === topOfStack;
           if (!inputMatch || !stackMatch) continue;
+
           const newStack = [...config.stack];
-          if (rule.pop !== EPSILON) newStack.pop();
-          if (rule.push !== EPSILON) [...rule.push].reverse().forEach(ch => newStack.push(ch));
-          const newPos = rule.input === EPSILON ? config.inputPos : config.inputPos + 1;
+          if (!isEpsilon(rule.pop)) newStack.pop();
+          if (!isEpsilon(rule.push)) [...rule.push].reverse().forEach(ch => newStack.push(ch));
+
+          const newPos = isEpsilon(rule.input) ? config.inputPos : config.inputPos + 1;
           const nextState = automaton.states.find(s => s.id === trans.to)!;
           steps.push({
             stateId: trans.to, inputPos: newPos, stack: [...newStack], transitionId: trans.id,
-            description: `δ(${state.label}, ${rule.input === EPSILON ? 'ε' : rule.input}, ${rule.pop === EPSILON ? 'ε' : rule.pop}) → (${nextState.label}, ${rule.push === EPSILON ? 'ε' : rule.push})`,
+            description: `δ(${state.label}, ${isEpsilon(rule.input) ? 'ε' : rule.input}, ${isEpsilon(rule.pop) ? 'ε' : rule.pop}) → (${nextState.label}, ${isEpsilon(rule.push) ? 'ε' : rule.push})`,
             status: 'running',
           });
           nextConfigs.push({ stateId: trans.to, inputPos: newPos, stack: newStack });
