@@ -1,34 +1,5 @@
 import type { Automaton, SimResult, SimStep } from './types';
-
-// Greedy tokenizer: at each position, try to match the longest transition symbol
-// from the current state. No delimiter needed — symbols are matched greedily.
-function greedyTokenize(input: string, automaton: Automaton): string[] | null {
-  const allSymbols = new Set<string>();
-  automaton.transitions.forEach(t => t.symbols.forEach(s => allSymbols.add(s)));
-  const symbols = [...allSymbols].sort((a, b) => b.length - a.length); // longest first
-
-  const tokens: string[] = [];
-  let pos = 0;
-
-  while (pos < input.length) {
-    let matched = false;
-    for (const sym of symbols) {
-      if (input.startsWith(sym, pos)) {
-        tokens.push(sym);
-        pos += sym.length;
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      // No symbol matched at this position — treat remaining as one unknown token
-      tokens.push(input.slice(pos));
-      break;
-    }
-  }
-
-  return tokens;
-}
+import { greedyTokenize, symbolMatches, isEpsilon } from './symbols';
 
 export function simulateDFA(automaton: Automaton, input: string): SimResult {
   const steps: SimStep[] = [];
@@ -39,24 +10,22 @@ export function simulateDFA(automaton: Automaton, input: string): SimResult {
   }
 
   const tokens = greedyTokenize(input, automaton);
-  if (!tokens) {
-    return { accepted: false, steps: [], reason: 'Could not tokenize input.' };
-  }
 
   let currentId = startState.id;
-
   steps.push({
     stateId: currentId,
     inputPos: 0,
-    description: `Start in state ${startState.label}  |  tokens: [${tokens.join(', ')}]`,
+    description: `Start in state ${startState.label}${tokens.length ? `  |  tokens: [${tokens.join(', ')}]` : '  |  empty input'}`,
     status: 'running',
   });
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     const current = automaton.states.find(s => s.id === currentId)!;
+
+    // Find matching transition — check each symbol with symbolMatches
     const transition = automaton.transitions.find(
-      t => t.from === currentId && t.symbols.includes(token)
+      t => t.from === currentId && t.symbols.some(sym => !isEpsilon(sym) && symbolMatches(sym, token))
     );
 
     if (!transition) {
@@ -73,11 +42,12 @@ export function simulateDFA(automaton: Automaton, input: string): SimResult {
     }
 
     const nextState = automaton.states.find(s => s.id === transition.to)!;
+    const matchedSym = transition.symbols.find(sym => symbolMatches(sym, token))!;
     steps.push({
       stateId: transition.to,
       inputPos: i + 1,
       transitionId: transition.id,
-      description: `δ(${current.label}, ${token}) → ${nextState.label}`,
+      description: `δ(${current.label}, ${token}${matchedSym !== token ? ` via ${matchedSym}` : ''}) → ${nextState.label}`,
       status: 'running',
     });
     currentId = transition.to;
@@ -103,23 +73,18 @@ export function simulateDFA(automaton: Automaton, input: string): SimResult {
   };
 }
 
-// Fast accept/reject with no step recording — used for batch runs
 export function acceptsDFA(automaton: Automaton, input: string): boolean {
   const startState = automaton.states.find(s => s.isStart);
   if (!startState) return false;
-
   const tokens = greedyTokenize(input, automaton);
-  if (!tokens) return false;
-
   let currentId = startState.id;
   for (const token of tokens) {
     const transition = automaton.transitions.find(
-      t => t.from === currentId && t.symbols.includes(token)
+      t => t.from === currentId && t.symbols.some(sym => !isEpsilon(sym) && symbolMatches(sym, token))
     );
     if (!transition) return false;
     currentId = transition.to;
   }
-
   return automaton.states.find(s => s.id === currentId)?.isAccept ?? false;
 }
 
