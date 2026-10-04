@@ -205,7 +205,7 @@ function reducer(state: AppState, action: Action): AppState {
       const { automaton, inputString } = state;
       let result: SimResult;
       if (automaton.type === 'DFA') result = simulateDFA(automaton, inputString);
-      else if (automaton.type === 'NFA') result = simulateNFA(automaton, inputString);
+      else if (automaton.type === 'NFA' || automaton.type === 'FA') result = simulateNFA(automaton, inputString);
       else if (automaton.type === 'PDA') result = simulatePDA(automaton, inputString);
       else result = simulateTM(automaton, inputString);
       return { ...state, simResult: result, simStepIndex: 0 };
