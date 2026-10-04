@@ -1,4 +1,5 @@
-export type MachineType = 'DFA' | 'NFA' | 'PDA' | 'TM';
+// FA = general Finite Automaton (non-deterministic by default, like JFLAP's default mode)
+export type MachineType = 'FA' | 'DFA' | 'NFA' | 'PDA' | 'TM';
 
 export interface State {
   id: string;
@@ -13,12 +14,9 @@ export interface Transition {
   id: string;
   from: string;
   to: string;
-  // DFA/NFA: symbols like ['a','b'] or ['ε']
-  // PDA: [{ input, pop, push }]
-  // TM: [{ read, write, move: 'L'|'R' }]
-  symbols: string[];        // for DFA/NFA
-  pdaRules?: PDARule[];     // for PDA
-  tmRules?: TMRule[];       // for TM
+  symbols: string[];       // DFA/NFA/FA: e.g. ['a','b','0-9'] — each is a symbol or range
+  pdaRules?: PDARule[];    // PDA
+  tmRules?: TMRule[];      // TM
 }
 
 export interface PDARule {
@@ -28,9 +26,9 @@ export interface PDARule {
 }
 
 export interface TMRule {
-  read: string;    // symbol to read
-  write: string;   // symbol to write
-  move: 'L' | 'R' | 'S'; // direction
+  read: string;        // symbol to read
+  write: string;       // symbol to write
+  move: 'L' | 'R' | 'S';
 }
 
 export interface Automaton {
@@ -40,23 +38,21 @@ export interface Automaton {
   states: State[];
   transitions: Transition[];
   alphabet: string[];
-  stackAlphabet?: string[];  // PDA
-  tapeAlphabet?: string[];   // TM
-  blankSymbol?: string;      // TM
+  stackAlphabet?: string[];
+  tapeAlphabet?: string[];
+  blankSymbol?: string;
 }
 
-// Simulation
 export interface SimStep {
   stateId: string;
   inputPos: number;
-  stack?: string[];        // PDA
-  tape?: string[];         // TM
-  tapeHead?: number;       // TM
+  stack?: string[];
+  tape?: string[];
+  tapeHead?: number;
   transitionId?: string;
   description: string;
   status: 'running' | 'accepted' | 'rejected' | 'dead';
-  // NFA: multiple active states
-  activeStates?: string[];
+  activeStates?: string[];   // NFA/FA: multiple active states
 }
 
 export interface SimResult {
@@ -65,13 +61,4 @@ export interface SimResult {
   reason: string;
 }
 
-// Canvas interaction
 export type Tool = 'select' | 'state' | 'transition' | 'delete';
-
-export interface CanvasState {
-  tool: Tool;
-  selectedStateId: string | null;
-  transitionFromId: string | null;  // first click when drawing a transition
-  pan: { x: number; y: number };
-  zoom: number;
-}
