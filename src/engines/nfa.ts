@@ -1,30 +1,5 @@
 import type { Automaton, SimResult, SimStep } from './types';
-
-const EPSILON = 'ε';
-
-function greedyTokenize(input: string, automaton: Automaton): string[] {
-  const allSymbols = new Set<string>();
-  automaton.transitions.forEach(t =>
-    t.symbols.forEach(s => { if (s !== EPSILON) allSymbols.add(s); })
-  );
-  const symbols = [...allSymbols].sort((a, b) => b.length - a.length);
-
-  const tokens: string[] = [];
-  let pos = 0;
-  while (pos < input.length) {
-    let matched = false;
-    for (const sym of symbols) {
-      if (input.startsWith(sym, pos)) {
-        tokens.push(sym);
-        pos += sym.length;
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) { tokens.push(input.slice(pos)); break; }
-  }
-  return tokens;
-}
+import { greedyTokenize, symbolMatches, isEpsilon, EPSILON } from './symbols';
 
 function epsilonClosure(stateIds: Set<string>, automaton: Automaton): Set<string> {
   const closure = new Set(stateIds);
@@ -32,7 +7,7 @@ function epsilonClosure(stateIds: Set<string>, automaton: Automaton): Set<string
   while (stack.length > 0) {
     const id = stack.pop()!;
     for (const t of automaton.transitions) {
-      if (t.from === id && t.symbols.includes(EPSILON) && !closure.has(t.to)) {
+      if (t.from === id && t.symbols.some(s => isEpsilon(s)) && !closure.has(t.to)) {
         closure.add(t.to);
         stack.push(t.to);
       }
@@ -41,18 +16,22 @@ function epsilonClosure(stateIds: Set<string>, automaton: Automaton): Set<string
   return closure;
 }
 
-function move(stateIds: Set<string>, symbol: string, automaton: Automaton): Set<string> {
+function move(stateIds: Set<string>, token: string, automaton: Automaton): Set<string> {
   const result = new Set<string>();
   for (const id of stateIds) {
     for (const t of automaton.transitions) {
-      if (t.from === id && t.symbols.includes(symbol)) result.add(t.to);
+      if (t.from === id && t.symbols.some(sym => !isEpsilon(sym) && symbolMatches(sym, token))) {
+        result.add(t.to);
+      }
     }
   }
   return result;
 }
 
 function stateLabels(ids: Set<string>, automaton: Automaton): string {
-  return '{' + [...ids].map(id => automaton.states.find(s => s.id === id)?.label ?? id).sort().join(', ') + '}';
+  return '{' + [...ids]
+    .map(id => automaton.states.find(s => s.id === id)?.label ?? id)
+    .sort().join(', ') + '}';
 }
 
 export function simulateNFA(automaton: Automaton, input: string): SimResult {
@@ -64,7 +43,7 @@ export function simulateNFA(automaton: Automaton, input: string): SimResult {
   let current = epsilonClosure(new Set([startState.id]), automaton);
   steps.push({
     stateId: startState.id, activeStates: [...current], inputPos: 0,
-    description: `Start — ε-closure = ${stateLabels(current, automaton)}  |  tokens: [${tokens.join(', ')}]`,
+    description: `Start — ε-closure = ${stateLabels(current, automaton)}${tokens.length ? `  |  tokens: [${tokens.join(', ')}]` : ''}`,
     status: 'running',
   });
 
@@ -97,7 +76,7 @@ export function simulateNFA(automaton: Automaton, input: string): SimResult {
     stateId: acceptingIds[0] ?? [...current][0], activeStates: [...current],
     inputPos: tokens.length,
     description: accepted
-      ? `Accepted — accept states active: ${stateLabels(new Set(acceptingIds), automaton)}`
+      ? `Accepted — accept states: ${stateLabels(new Set(acceptingIds), automaton)}`
       : `Rejected — no active state is an accept state`,
     status: accepted ? 'accepted' : 'rejected',
   });
@@ -106,6 +85,78 @@ export function simulateNFA(automaton: Automaton, input: string): SimResult {
 }
 
 export function acceptsNFA(automaton: Automaton, input: string): boolean {
-  const result = simulateNFA(automaton, input);
-  return result.accepted;
+  return simulateNFA(automaton, input).accepted;
+}
+
+// NFA → DFA subset construction
+export function nfaToDFA(automaton: Automaton): Automaton {
+  const startState = automaton.states.find(s => s.isStart);
+  if (!startState) return automaton;
+
+  // Collect non-epsilon alphabet symbols (expand ranges)
+  const alphabet = new Set<string>();
+  automaton.transitions.forEach(t =>
+    t.symbols.forEach(sym => { if (!isEpsilon(sym)) alphabet.add(sym); })
+  );
+
+  function uid() { return Math.random().toString(36).slice(2, 7); }
+  function key(ids: Set<string>) { return [...ids].sort().join(','); }
+
+  const startClosure = epsilonClosure(new Set([startState.id]), automaton);
+  const queue: Set<string>[] = [startClosure];
+  const visited = new Map<string, string>(); // key → new state id
+  const newStates: import('./types').State[] = [];
+  const newTransitions: import('./types').Transition[] = [];
+  let idxX = 0, idxY = 0;
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const k = key(current);
+    if (visited.has(k)) continue;
+
+    const newId = uid();
+    visited.set(k, newId);
+
+    const label = [...current]
+      .map(id => automaton.states.find(s => s.id === id)?.label ?? id)
+      .sort().join('');
+
+    const isStart = k === key(startClosure);
+    const isAccept = [...current].some(id => automaton.states.find(s => s.id === id)?.isAccept);
+
+    newStates.push({
+      id: newId, label: `{${label}}`,
+      x: 150 + (idxX++ % 4) * 180,
+      y: 150 + idxY * 140,
+      isStart, isAccept,
+    });
+    if (idxX % 4 === 0) idxY++;
+
+    for (const sym of alphabet) {
+      const moved = move(current, sym, automaton);
+      if (moved.size === 0) continue;
+      const next = epsilonClosure(moved, automaton);
+      const nextKey = key(next);
+      if (!visited.has(nextKey)) queue.push(next);
+      newTransitions.push({
+        id: uid(), from: newId, to: nextKey, symbols: [sym],
+      });
+    }
+  }
+
+  // Resolve transition `to` from key to actual id
+  const resolved = newTransitions.map(t => ({
+    ...t,
+    to: visited.get(t.to) ?? t.to,
+  }));
+
+  const allSyms = [...alphabet];
+  return {
+    ...automaton,
+    id: uid(), name: automaton.name + ' (DFA)',
+    type: 'DFA',
+    states: newStates,
+    transitions: resolved,
+    alphabet: allSyms,
+  };
 }
