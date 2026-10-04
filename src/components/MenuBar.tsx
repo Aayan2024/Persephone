@@ -13,19 +13,13 @@ interface MenuBarProps {
   onRunSimulation?: () => void;
   onStepSimulation?: () => void;
   onResetSimulation?: () => void;
+  onBatchRun?: () => void;
 }
 
 export const MenuBar: React.FC<MenuBarProps> = ({
-  currentType,
-  onSelectType,
-  onNew,
-  onLoadState,
-  getCurrentState,
-  isDarkMode,
-  onToggleDarkMode,
-  onRunSimulation,
-  onStepSimulation,
-  onResetSimulation,
+  currentType, onSelectType, onNew, onLoadState, getCurrentState,
+  isDarkMode, onToggleDarkMode,
+  onRunSimulation, onStepSimulation, onResetSimulation, onBatchRun,
 }) => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
@@ -64,20 +58,17 @@ export const MenuBar: React.FC<MenuBarProps> = ({
       </div>
 
       <nav className="menu-nav">
-        {/* FILE MENU */}
+
+        {/* FILE */}
         <div className="menu-item">
-          <button
-            className={`menu-btn ${activeMenu === 'file' ? 'active' : ''}`}
-            onClick={() => toggleMenu('file')}
-          >
-            File
-          </button>
+          <button className={`menu-btn ${activeMenu === 'file' ? 'active' : ''}`}
+            onClick={() => toggleMenu('file')}>File</button>
           {activeMenu === 'file' && (
             <div className="dropdown-menu">
               <button onClick={() => { onNew(); closeMenus(); }}>New Machine</button>
               <label className="dropdown-label">
-                Open File...
-                <input type="file" accept=".json,.jff" onChange={handleImport} hidden />
+                Open File…
+                <input type="file" accept=".json" onChange={handleImport} hidden />
               </label>
               <hr />
               <button onClick={handleExportJSON}>Save as JSON</button>
@@ -86,56 +77,49 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           )}
         </div>
 
-        {/* TYPE SELECTOR MENU */}
+        {/* MACHINE TYPE */}
         <div className="menu-item">
-          <button
-            className={`menu-btn ${activeMenu === 'type' ? 'active' : ''}`}
-            onClick={() => toggleMenu('type')}
-          >
+          <button className={`menu-btn ${activeMenu === 'type' ? 'active' : ''}`}
+            onClick={() => toggleMenu('type')}>
             Machine: <strong>{currentType}</strong>
           </button>
           {activeMenu === 'type' && (
             <div className="dropdown-menu">
-              {(['DFA', 'NFA', 'PDA', 'TM'] as MachineType[]).map((type) => (
+              {(['DFA', 'NFA', 'PDA', 'TM'] as MachineType[]).map(type => (
                 <button
                   key={type}
                   className={currentType === type ? 'selected' : ''}
-                  onClick={() => {
-                    onSelectType(type);
-                    closeMenus();
-                  }}
+                  onClick={() => { onSelectType(type); closeMenus(); }}
                 >
-                  {type === 'DFA' && 'Deterministic Finite Automaton (DFA)'}
-                  {type === 'NFA' && 'Nondeterministic Finite Automaton (NFA)'}
-                  {type === 'PDA' && 'Pushdown Automaton (PDA)'}
-                  {type === 'TM' && 'Turing Machine (TM)'}
+                  {type === 'DFA' && 'Deterministic Finite Automaton'}
+                  {type === 'NFA' && 'Nondeterministic Finite Automaton'}
+                  {type === 'PDA' && 'Pushdown Automaton'}
+                  {type === 'TM' && 'Turing Machine'}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* SIMULATION MENU */}
+        {/* SIMULATE */}
         <div className="menu-item">
-          <button
-            className={`menu-btn ${activeMenu === 'simulate' ? 'active' : ''}`}
-            onClick={() => toggleMenu('simulate')}
-          >
-            Simulate
-          </button>
+          <button className={`menu-btn ${activeMenu === 'simulate' ? 'active' : ''}`}
+            onClick={() => toggleMenu('simulate')}>Simulate</button>
           {activeMenu === 'simulate' && (
             <div className="dropdown-menu">
               <button onClick={() => { onRunSimulation?.(); closeMenus(); }}>▶ Fast Run</button>
               <button onClick={() => { onStepSimulation?.(); closeMenus(); }}>⏭ Step Forward</button>
-              <button onClick={() => { onResetSimulation?.(); closeMenus(); }}>🔄 Reset State</button>
+              <button onClick={() => { onResetSimulation?.(); closeMenus(); }}>↺ Reset</button>
+              <hr />
+              <button onClick={() => { onBatchRun?.(); closeMenus(); }}>⊞ Multiple Run…</button>
             </div>
           )}
         </div>
+
       </nav>
 
-      {/* RIGHT SIDE CONTROLS */}
       <div className="menu-controls">
-        <button className="theme-toggle-btn" onClick={onToggleDarkMode} title="Toggle Dark/Light Mode">
+        <button className="theme-toggle-btn" onClick={onToggleDarkMode}>
           {isDarkMode ? '🌙 Dark' : '☀️ Light'}
         </button>
       </div>
